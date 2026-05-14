@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>SomaOS Voice</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --bg: #080808; --glass: rgba(18,18,22,0.55);
+  --green: #52c97a; --green-dim: rgba(82,201,122,0.12); --green-dim2: rgba(82,201,122,0.06);
+  --red: #f55252; --text: #ffffff; --muted: rgba(255,255,255,0.38); --dim: rgba(255,255,255,0.18);
+  --blur: blur(28px) saturate(160%); --r: 18px;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; min-height:100vh; overflow-x:hidden; }
+.bg { position:fixed; inset:0; z-index:0; background: radial-gradient(ellipse 90% 50% at 50% -5%, rgba(82,201,122,0.09) 0%, transparent 65%), radial-gradient(ellipse 50% 40% at 95% 95%, rgba(82,201,122,0.04) 0%, transparent 60%), #080808; }
+
+#setupScreen { position:fixed; inset:0; z-index:100; display:flex; align-items:center; justify-content:center; padding:24px; background:var(--bg); }
+.setup-box { background:var(--glass); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); border-radius:24px; padding:32px 24px; width:100%; max-width:400px; border:1px solid rgba(255,255,255,0.06); }
+.setup-logo { font-size:20px; font-weight:700; margin-bottom:8px; }
+.setup-logo span { color:var(--green); }
+.setup-sub { font-size:13px; color:var(--muted); font-weight:300; margin-bottom:28px; line-height:1.5; }
+.setup-field { margin-bottom:16px; }
+.setup-lbl { font-size:11px; font-weight:500; color:var(--muted); letter-spacing:0.8px; text-transform:uppercase; margin-bottom:8px; display:block; }
+.setup-inp { width:100%; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:12px; padding:14px 16px; color:var(--text); font-family:inherit; font-size:13px; outline:none; }
+.setup-inp:focus { border-color:rgba(82,201,122,0.4); }
+.setup-inp::placeholder { color:var(--dim); }
+.setup-hint { font-size:11px; color:var(--dim); margin-top:6px; line-height:1.5; }
+.setup-err { color:var(--red); font-size:12px; margin-top:12px; display:none; }
+.btn-setup { width:100%; padding:16px; background:var(--green); color:#000; font-family:inherit; font-size:14px; font-weight:600; border:none; border-radius:12px; cursor:pointer; margin-top:8px; }
+
+.page { position:relative; z-index:1; max-width:480px; margin:0 auto; padding:0 18px 80px; animation:fadeUp 0.5s ease both; }
+@keyframes fadeUp { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
+.glass { background:var(--glass); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); border-radius:var(--r); }
+.header { display:flex; align-items:center; justify-content:space-between; padding:36px 0 24px; }
+.logo { font-size:17px; font-weight:700; }
+.logo span { color:var(--green); }
+.date-pill { background:var(--glass); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); border-radius:50px; padding:6px 14px; font-size:11px; font-weight:500; color:var(--muted); }
+.settings-btn { background:none; border:none; color:var(--dim); cursor:pointer; font-size:18px; padding:4px; }
+.stack { display:flex; flex-direction:column; gap:10px; }
+.card { padding:20px; }
+.card-lbl { font-size:11px; font-weight:500; color:var(--muted); letter-spacing:0.8px; text-transform:uppercase; margin-bottom:16px; }
+.module-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.mod-btn { background:var(--green-dim2); border:1px solid rgba(255,255,255,0.06); border-radius:12px; color:var(--muted); font-family:inherit; font-size:13px; font-weight:500; padding:12px 10px; cursor:pointer; display:flex; align-items:center; gap:8px; }
+.mod-btn.active { background:var(--green-dim); border-color:rgba(82,201,122,0.3); color:var(--green); }
+.record-card { padding:32px 20px; display:flex; flex-direction:column; align-items:center; gap:20px; }
+.waveform { display:flex; align-items:center; gap:4px; height:32px; opacity:0; transition:opacity 0.3s; }
+.waveform.on { opacity:1; }
+.wb { width:3px; background:var(--green); border-radius:2px; animation:wv 0.8s ease-in-out infinite alternate; height:8px; }
+.wb:nth-child(1){animation-delay:0s}.wb:nth-child(2){animation-delay:.1s}.wb:nth-child(3){animation-delay:.2s}.wb:nth-child(4){animation-delay:.05s}.wb:nth-child(5){animation-delay:.15s}.wb:nth-child(6){animation-delay:.25s}.wb:nth-child(7){animation-delay:.08s}.wb:nth-child(8){animation-delay:.18s}
+@keyframes wv { from{height:4px} to{height:28px} }
+.rec-btn { width:72px; height:72px; border-radius:50%; border:1.5px solid rgba(255,255,255,0.1); background:var(--glass); color:var(--muted); cursor:pointer; display:flex; align-items:center; justify-content:center; }
+.rec-btn svg { width:28px; height:28px; }
+.rec-btn.on { border-color:var(--red); color:var(--red); box-shadow:0 0 0 8px rgba(245,82,82,0.08); }
+.rec-lbl { font-size:13px; font-weight:300; color:var(--muted); text-align:center; }
+.rec-lbl.on { color:var(--green); }
+.section { padding:20px; display:none; }
+.section.on { display:block; }
+.tx-text { font-size:14px; font-weight:300; line-height:1.6; color:var(--muted); }
+.prev-row { display:flex; justify-content:space-between; align-items:baseline; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.04); }
+.prev-row:last-child { border-bottom:none; padding-bottom:0; }
+.prev-row:first-child { padding-top:0; }
+.prev-k { font-size:11px; font-weight:500; color:var(--muted); }
+.prev-v { font-size:14px; font-weight:400; }
+.btn-save { width:100%; padding:16px; background:var(--green); color:#000; font-family:inherit; font-size:14px; font-weight:600; border:none; border-radius:12px; cursor:pointer; margin-bottom:8px; }
+.btn-discard { width:100%; padding:14px; background:transparent; color:var(--muted); font-family:inherit; font-size:13px; border:1px solid rgba(255,255,255,0.08); border-radius:12px; cursor:pointer; }
+.status-box { padding:20px; display:none; font-size:13px; }
+.status-box.on { display:block; }
+.status-box.loading { color:var(--muted); }
+.status-box.success { color:var(--green); font-weight:500; }
+.status-box.error { color:var(--red); }
+.hist-card { padding:20px; }
+.hist-item { display:flex; justify-content:space-between; align-items:center; padding:12px 0; border-bottom:1px solid rgba(255,255,255,0.04); }
+.hist-item:last-child { border-bottom:none; padding-bottom:0; }
+.hist-item:first-child { padding-top:0; }
+.hist-l { display:flex; flex-direction:column; gap:3px; }
+.hist-mod { font-size:10px; font-weight:600; color:var(--muted); letter-spacing:0.8px; text-transform:uppercase; }
+.hist-sum { font-size:13px; font-weight:300; }
+.hist-t { font-size:11px; color:var(--muted); }
+.dot { width:6px; height:6px; border-radius:50%; background:var(--green); margin-left:10px; }
+.empty { font-size:12px; font-weight:300; color:var(--muted); }
+.spinner { width:14px; height:14px; border:1.5px solid rgba(255,255,255,0.12); border-top-color:var(--green); border-radius:50%; animation:spin 0.7s linear infinite; display:inline-block; vertical-align:middle; margin-right:8px; }
+@keyframes spin { to{transform:rotate(360deg)} }
+.manual-input { width:100%; background:transparent; border:none; color:var(--text); font-family:inherit; font-size:14px; font-weight:300; line-height:1.6; resize:none; outline:none; min-height:80px; margin-bottom:12px; display:block; }
+.btn-analyze { background:transparent; border:1px solid rgba(82,201,122,0.3); color:var(--green); font-family:inherit; font-size:13px; font-weight:500; padding:10px 18px; border-radius:10px; cursor:pointer; }
+</style>
+</head>
+<body>
+<div class="bg"></div>
+
+<div id="setupScreen">
+  <div class="setup-box">
+    <div class="setup-logo"><span>Soma</span>OS Voice</div>
+    <div class="setup-sub">Einmalige Einrichtung — Keys werden lokal gespeichert.</div>
+    <div class="setup-field">
+      <label class="setup-lbl">Anthropic API Key</label>
+      <input class="setup-inp" id="inAK" type="password" placeholder="sk-ant-…" autocomplete="off"/>
+      <div class="setup-hint">console.anthropic.com → API Keys → Create Key</div>
+    </div>
+    <div class="setup-field">
+      <label class="setup-lbl">Notion Token</label>
+      <input class="setup-inp" id="inNT" type="password" placeholder="ntn_…" autocomplete="off"/>
+      <div class="setup-hint">notion.so/profile/integrations → New integration → Token</div>
+    </div>
+    <div class="setup-field">
+      <label class="setup-lbl">Datenbank-ID</label>
+      <input class="setup-inp" id="inDB" type="text" placeholder="32-stellige ID" autocomplete="off"/>
+      <div class="setup-hint">Notion Datenbank URL → ID vor dem ?</div>
+    </div>
+    <div class="setup-err" id="setupErr">Bitte alle Felder ausfüllen.</div>
+    <button class="btn-setup" id="btnSetup">Einrichten &amp; starten →</button>
+  </div>
+</div>
+
+<div class="page" id="mainApp" style="display:none">
+  <div class="header">
+    <div class="logo"><span>Soma</span>OS</div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <div class="date-pill" id="dateBadge"></div>
+      <button class="settings-btn" id="btnSettings">⚙️</button>
+    </div>
+  </div>
+  <div class="stack">
+    <div class="glass card">
+      <div class="card-lbl">Modul</div>
+      <div class="module-grid">
+        <button class="mod-btn active" data-mod="schlaf"><span>🌙</span>Schlaf</button>
+        <button class="mod-btn" data-mod="fitness"><span>💪</span>Fitness</button>
+        <button class="mod-btn" data-mod="ernaehrung"><span>🥗</span>Ernährung</button>
+        <button class="mod-btn" data-mod="mindfulness"><span>🧘</span>Psyche</button>
+      </div>
+    </div>
+    <div class="glass record-card">
+      <div class="waveform" id="waveform">
+        <div class="wb"></div><div class="wb"></div><div class="wb"></div><div class="wb"></div>
+        <div class="wb"></div><div class="wb"></div><div class="wb"></div><div class="wb"></div>
+      </div>
+      <button class="rec-btn" id="recBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+          <line x1="12" y1="19" x2="12" y2="23"/>
+          <line x1="8" y1="23" x2="16" y2="23"/>
+        </svg>
+      </button>
+      <div class="rec-lbl" id="recLbl">Tippen zum Aufnehmen</div>
+    </div>
+    <div class="glass section" id="txCard"><div class="card-lbl">Transkript</div><div class="tx-text" id="txText"></div></div>
+    <div class="glass section" id="prevCard"><div class="card-lbl">Erkannter Eintrag</div><div id="prevRows"></div></div>
+    <div class="glass status-box" id="statusBox"></div>
+    <div class="glass section" id="actCard">
+      <button class="btn-save" id="btnSave">In Notion speichern</button>
+      <button class="btn-discard" id="btnDiscard">Verwerfen</button>
+    </div>
+    <div class="glass hist-card"><div class="card-lbl">Heutige Einträge</div><div id="histList"><div class="empty">Noch keine Einträge</div></div></div>
+  </div>
+</div>
+
+<script>
+var AK = localStorage.getItem('soma_ak') || '';
+var NT = localStorage.getItem('soma_nt') || '';
+var DB = localStorage.getItem('soma_db') || '';
+var mod = 'schlaf';
+var isRec = false;
+var recog = null;
+var tx = '';
+var parsed = null;
+var hist = [];
+
+// Setup
+document.getElementById('btnSetup').addEventListener('click', function() {
+  var ak = document.getElementById('inAK').value.trim();
+  var nt = document.getElementById('inNT').value.trim();
+  var db = document.getElementById('inDB').value.trim();
+  if (!ak || !nt || !db) { document.getElementById('setupErr').style.display='block'; return; }
+  localStorage.setItem('soma_ak', ak);
+  localStorage.setItem('soma_nt', nt);
+  localStorage.setItem('soma_db', db);
+  AK=ak; NT=nt; DB=db;
+  document.getElementById('setupScreen').style.display='none';
+  document.getElementById('mainApp').style.display='block';
+});
+
+document.getElementById('btnSettings').addEventListener('click', function() {
+  document.getElementById('inAK').value=AK;
+  document.getElementById('inNT').value=NT;
+  document.getElementById('inDB').value=DB;
+  document.getElementById('setupScreen').style.display='flex';
+  document.getElementById('mainApp').style.display='none';
+});
+
+window.addEventListener('DOMContentLoaded', function() {
+  if (AK && NT && DB) {
+    document.getElementById('setupScreen').style.display='none';
+    document.getElementById('mainApp').style.display='block';
+  }
+  document.getElementById('dateBadge').textContent = new Date().toLocaleDateString('de-DE',{weekday:'short',day:'numeric',month:'short'});
+});
+
+// Modules
+document.querySelectorAll('.mod-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.mod-btn').forEach(function(b){b.classList.remove('active');});
+    btn.classList.add('active');
+    mod = btn.dataset.mod;
+    resetAll();
+  });
+});
+
+// Record
+document.getElementById('recBtn').addEventListener('click', function() {
+  if (!isRec) startRec(); else stopRec();
+});
+
+function startRec() {
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { showFallback(); return; }
+  recog = new SR();
+  recog.lang='de-DE'; recog.continuous=false; recog.interimResults=false; tx='';
+  recog.onstart = function() {
+    isRec=true;
+    document.getElementById('recBtn').classList.add('on');
+    document.getElementById('recLbl').classList.add('on');
+    document.getElementById('recLbl').textContent='Sprich jetzt — tippen zum Stoppen';
+    document.getElementById('waveform').classList.add('on');
+  };
+  recog.onresult = function(e) {
+    for (var i=e.resultIndex; i<e.results.length; i++) {
+      if (e.results[i].isFinal) tx += e.results[i][0].transcript + ' ';
+    }
+  };
+  recog.onerror = function(e) {
+    stopUI();
+    if (e.error==='not-allowed') setStatus('Mikrofon-Zugriff verweigert','error');
+    else if (e.error!=='aborted') showFallback();
+  };
+  recog.onend = function() {
+    stopUI();
+    if (tx.trim()) parseText(tx.trim()); else showFallback();
+  };
+  recog.start();
+}
+
+function stopRec() {
+  if (recog) { recog.onend=null; recog.stop(); }
+  stopUI();
+  if (tx.trim()) parseText(tx.trim());
+  else { document.getElementById('recLbl').textContent='Tippen zum Aufnehmen'; showFallback(); }
+}
+
+function stopUI() {
+  isRec=false;
+  document.getElementById('recBtn').classList.remove('on');
+  document.getElementById('recLbl').classList.remove('on');
+  document.getElementById('waveform').classList.remove('on');
+  document.getElementById('recLbl').textContent='Wird verarbeitet…';
+}
+
+// Prompts
+var PROMPTS = {
+  schlaf: 'Du bist Assistent für SomaOS. Extrahiere Schlafdaten.\nFelder: einschlafzeit (HH:MM), aufwachzeit (HH:MM), schlaf_quality (1-10), regularity (eines von: "0-1h Abweichung","1-2h Abweichung","2-3h Abweichung","3h+ Abweichung"), notiz.\nAntworte NUR mit JSON ohne Markdown:\n{"transkript":"","einschlafzeit":"23:30","aufwachzeit":"07:00","schlaf_quality":7,"regularity":"0-1h Abweichung","notiz":""}',
+  fitness: 'Du bist Assistent für SomaOS. Extrahiere Fitness-Daten.\nFelder: workout_typ, dauer_min, intensitaet (1-10), uebungen, notiz.\nAntworte NUR mit JSON ohne Markdown:\n{"transkript":"","workout_typ":"Upper Body","dauer_min":60,"intensitaet":7,"uebungen":"Bench, Rows","notiz":""}',
+  ernaehrung: 'Du bist Assistent für SomaOS. Extrahiere Ernährungsdaten.\nFelder: kalorien, protein_g, wasser_ml, mahlzeiten, notiz.\nAntworte NUR mit JSON ohne Markdown:\n{"transkript":"","kalorien":2800,"protein_g":180,"wasser_ml":2500,"mahlzeiten":"Oats, Chicken, Rice","notiz":""}',
+  mindfulness: 'Du bist Assistent für SomaOS. Extrahiere Psyche-Daten.\nFelder: stimmung (1-10), energie (1-10), stress (1-10), bildschirmzeit_h, journaling (true/false), notiz.\nAntworte NUR mit JSON ohne Markdown:\n{"transkript":"","stimmung":7,"energie":7,"stress":3,"bildschirmzeit_h":3,"journaling":false,"notiz":""}'
+};
+
+function parseText(text) {
+  setStatus('<span class="spinner"></span>Analysiere…','loading');
+  document.getElementById('txCard').classList.add('on');
+  document.getElementById('txText').textContent = text;
+  fetch('/api/claude', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({anthropic_key: AK, prompt: PROMPTS[mod]+'\n\nText: "'+text+'"'})
+  })
+  .then(function(r){return r.json();})
+  .then(function(d) {
+    if (d.error) throw new Error(d.error);
+    parsed = JSON.parse((d.text||'').replace(/```json|```/g,'').trim());
+    showParsed();
+  })
+  .catch(function(e){ setStatus('Fehler: '+e.message,'error'); document.getElementById('recLbl').textContent='Tippen zum Aufnehmen'; });
+}
+
+function showFallback() {
+  clearStatus();
+  document.getElementById('txCard').classList.add('on');
+  document.getElementById('txText').innerHTML = '<textarea class="manual-input" id="manualInput" placeholder="Tippe deinen Eintrag…"></textarea><button class="btn-analyze" id="btnAnalyze">Analysieren →</button>';
+  document.getElementById('btnAnalyze').addEventListener('click', function() {
+    var t = document.getElementById('manualInput').value.trim();
+    if (t) parseText(t);
+  });
+  document.getElementById('recLbl').textContent='Tippen zum Aufnehmen';
+}
+
+function showParsed() {
+  clearStatus();
+  var L = {
+    schlaf:[['Einschlafzeit',parsed.einschlafzeit],['Aufwachzeit',parsed.aufwachzeit],['Schlafqualität',(parsed.schlaf_quality||'—')+' / 10'],['Regelmäßigkeit',parsed.regularity]],
+    fitness:[['Workout',parsed.workout_typ],['Dauer',(parsed.dauer_min||'—')+' min'],['Intensität',(parsed.intensitaet||'—')+' / 10'],['Übungen',parsed.uebungen]],
+    ernaehrung:[['Kalorien',(parsed.kalorien||'—')+' kcal'],['Protein',(parsed.protein_g||'—')+' g'],['Wasser',(parsed.wasser_ml||'—')+' ml'],['Mahlzeiten',parsed.mahlzeiten]],
+    mindfulness:[['Stimmung',(parsed.stimmung||'—')+' / 10'],['Energie',(parsed.energie||'—')+' / 10'],['Stress',(parsed.stress||'—')+' / 10'],['Bildschirmzeit',(parsed.bildschirmzeit_h||'—')+' h'],['Journaling',parsed.journaling?'Ja ✓':'Nein']]
+  };
+  document.getElementById('prevRows').innerHTML = (L[mod]||[]).map(function(r){
+    return '<div class="prev-row"><span class="prev-k">'+r[0]+'</span><span class="prev-v">'+(r[1]||'—')+'</span></div>';
+  }).join('');
+  document.getElementById('prevCard').classList.add('on');
+  document.getElementById('actCard').classList.add('on');
+  document.getElementById('recLbl').textContent='Tippen zum Aufnehmen';
+}
+
+// Save
+document.getElementById('btnSave').addEventListener('click', function() {
+  if (!parsed) return;
+  setStatus('<span class="spinner"></span>Speichere in Notion…','loading');
+  document.getElementById('actCard').classList.remove('on');
+  var today = new Date().toISOString().split('T')[0];
+  var payload = {datum: today};
+  if (mod==='schlaf') {
+    payload.einschlafzeit  = parsed.einschlafzeit  || null;
+    payload.aufwachzeit    = parsed.aufwachzeit    || null;
+    payload.schlaf_quality = parsed.schlaf_quality || null;
+    payload.regularity     = parsed.regularity     || null;
+  }
+  fetch('/api/notion', {
+    method:'POST',
+    headers:{'Content-Type':'application/json','x-notion-token':NT,'x-database-id':DB},
+    body: JSON.stringify(payload)
+  })
+  .then(function(r){return r.json().then(function(d){return {ok:r.ok,d:d};});})
+  .then(function(res) {
+    if (res.ok) { setStatus('✓ Eintrag gespeichert','success'); addHist(); setTimeout(resetAll,2000); }
+    else { setStatus('Fehler: '+(res.d.error||'Unbekannt'),'error'); document.getElementById('actCard').classList.add('on'); }
+  })
+  .catch(function(e){ setStatus('Verbindungsfehler: '+e.message,'error'); document.getElementById('actCard').classList.add('on'); });
+});
+
+document.getElementById('btnDiscard').addEventListener('click', resetAll);
+
+function addHist() {
+  var M={schlaf:'🌙 Schlaf',fitness:'💪 Fitness',ernaehrung:'🥗 Ernährung',mindfulness:'🧘 Psyche'};
+  var S={
+    schlaf:(parsed.einschlafzeit||'?')+' → '+(parsed.aufwachzeit||'?')+' · Q '+parsed.schlaf_quality+'/10',
+    fitness:parsed.workout_typ+' · '+parsed.dauer_min+' min',
+    ernaehrung:parsed.kalorien+' kcal · '+parsed.protein_g+'g Protein',
+    mindfulness:'Stimmung '+parsed.stimmung+'/10'
+  };
+  hist.unshift({m:M[mod],s:S[mod],t:new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})});
+  var el=document.getElementById('histList');
+  el.innerHTML=hist.map(function(h){
+    return '<div class="hist-item"><div class="hist-l"><span class="hist-mod">'+h.m+'</span><span class="hist-sum">'+h.s+'</span></div><div style="display:flex;align-items:center"><span class="hist-t">'+h.t+'</span><div class="dot"></div></div></div>';
+  }).join('');
+}
+
+function setStatus(msg,type){ var el=document.getElementById('statusBox'); el.innerHTML=msg; el.className='glass status-box on '+type; }
+function clearStatus(){ document.getElementById('statusBox').className='glass status-box'; }
+function resetAll(){ parsed=null; document.getElementById('txCard').classList.remove('on'); document.getElementById('prevCard').classList.remove('on'); document.getElementById('actCard').classList.remove('on'); document.getElementById('recLbl').textContent='Tippen zum Aufnehmen'; clearStatus(); }
+</script>
+</body>
+</html>
