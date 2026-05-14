@@ -1,0 +1,1164 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SomaOS Voice</title>
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#080808" />
+  <style>
+    :root {
+      --bg: #080808;
+      --surface: rgba(255,255,255,0.04);
+      --surface-hover: rgba(255,255,255,0.07);
+      --border: rgba(255,255,255,0.08);
+      --green: #52c97a;
+      --green-dim: rgba(82,201,122,0.15);
+      --red: #e05c5c;
+      --yellow: #e0b75c;
+      --text: #f0f0f0;
+      --text-muted: rgba(240,240,240,0.45);
+      --text-dim: rgba(240,240,240,0.25);
+      --radius: 12px;
+      --font: 'Inter', -apple-system, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* ── HEADER ── */
+    header {
+      width: 100%;
+      max-width: 480px;
+      padding: 20px 20px 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .logo {
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      color: var(--green);
+      text-transform: uppercase;
+    }
+    .logo span { color: var(--text-muted); font-weight: 400; }
+    #setup-btn {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: 12px;
+      padding: 5px 12px;
+      cursor: pointer;
+      font-family: var(--font);
+      transition: all 0.2s;
+    }
+    #setup-btn:hover { border-color: var(--green); color: var(--green); }
+
+    /* ── MAIN ── */
+    main {
+      width: 100%;
+      max-width: 480px;
+      padding: 20px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* ── MODULE TABS ── */
+    .module-tabs {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+    }
+    .tab-btn {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      font-family: var(--font);
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 10px 4px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+    }
+    .tab-btn .tab-icon { font-size: 16px; }
+    .tab-btn:hover { background: var(--surface-hover); color: var(--text); }
+    .tab-btn.active {
+      background: var(--green-dim);
+      border-color: var(--green);
+      color: var(--green);
+    }
+
+    /* ── CARD ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      backdrop-filter: blur(28px);
+      -webkit-backdrop-filter: blur(28px);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* ── MIC BUTTON ── */
+    .mic-area {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 0;
+    }
+    #mic-btn {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      border: 2px solid var(--green);
+      background: var(--green-dim);
+      color: var(--green);
+      font-size: 28px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #mic-btn:hover { background: rgba(82,201,122,0.25); transform: scale(1.04); }
+    #mic-btn.recording {
+      background: rgba(224,92,92,0.2);
+      border-color: var(--red);
+      color: var(--red);
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(224,92,92,0.4); }
+      50% { box-shadow: 0 0 0 12px rgba(224,92,92,0); }
+    }
+    #mic-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      text-align: center;
+    }
+
+    /* ── TRANSCRIPT ── */
+    #transcript-box {
+      background: rgba(0,0,0,0.3);
+      border: 1px solid var(--border);
+      padding: 12px;
+      min-height: 60px;
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--text-muted);
+      font-style: italic;
+    }
+    #transcript-box:empty::before {
+      content: attr(data-placeholder);
+      color: var(--text-dim);
+    }
+
+    /* ── PARSED DATA ── */
+    .parsed-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .parsed-field {
+      background: rgba(0,0,0,0.25);
+      border: 1px solid var(--border);
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .parsed-field.full-width { grid-column: 1 / -1; }
+    .field-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+    }
+    .field-value {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text);
+    }
+    .field-value input, .field-value select {
+      width: 100%;
+      background: transparent;
+      border: none;
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 14px;
+      font-weight: 500;
+      outline: none;
+    }
+    .field-value select option { background: #1a1a1a; }
+
+    /* ── ACTIONS ── */
+    .actions { display: flex; gap: 8px; }
+    .btn {
+      flex: 1;
+      padding: 13px;
+      border: 1px solid;
+      font-family: var(--font);
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-primary {
+      background: var(--green);
+      border-color: var(--green);
+      color: #080808;
+    }
+    .btn-primary:hover { background: #68d990; }
+    .btn-primary:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    .btn-secondary {
+      background: transparent;
+      border-color: var(--border);
+      color: var(--text-muted);
+    }
+    .btn-secondary:hover { border-color: var(--text-muted); color: var(--text); }
+
+    /* ── STATUS ── */
+    #status-msg {
+      font-size: 12px;
+      text-align: center;
+      min-height: 18px;
+      letter-spacing: 0.04em;
+    }
+    #status-msg.success { color: var(--green); }
+    #status-msg.error { color: var(--red); }
+    #status-msg.loading { color: var(--yellow); }
+
+    /* ── MODULE PANELS ── */
+    .module-panel { display: none; }
+    .module-panel.active { display: contents; }
+
+    /* ── SETUP MODAL ── */
+    #setup-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.85);
+      z-index: 100;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 20px;
+      overflow-y: auto;
+    }
+    #setup-modal.open { display: flex; }
+    .setup-card {
+      background: #111;
+      border: 1px solid var(--border);
+      padding: 24px;
+      width: 100%;
+      max-width: 440px;
+      margin-top: 40px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .setup-title {
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--green);
+    }
+    .setup-group { display: flex; flex-direction: column; gap: 6px; }
+    .setup-group label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+    .setup-group input {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 13px;
+      padding: 10px 12px;
+      outline: none;
+      width: 100%;
+    }
+    .setup-group input:focus { border-color: var(--green); }
+    .setup-hint {
+      font-size: 11px;
+      color: var(--text-dim);
+      line-height: 1.5;
+    }
+    .db-ids-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    /* ── STEPS ── */
+    .step-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .step-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--border);
+    }
+    .step-dot.done { background: var(--green); }
+    .step-dot.active { background: var(--yellow); }
+
+    /* ── MULTI SELECT TAGS ── */
+    .tag-select {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .tag {
+      font-size: 11px;
+      padding: 4px 10px;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.15s;
+      user-select: none;
+    }
+    .tag.selected {
+      border-color: var(--green);
+      color: var(--green);
+      background: var(--green-dim);
+    }
+
+    /* ── SLIDER ── */
+    input[type=range] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 3px;
+      background: var(--border);
+      outline: none;
+      cursor: pointer;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      background: var(--green);
+      cursor: pointer;
+    }
+    .range-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      color: var(--text-dim);
+      margin-top: 4px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Soma<span>OS</span></div>
+  <button id="setup-btn">⚙ Setup</button>
+</header>
+
+<main>
+  <!-- MODULE TABS -->
+  <div class="module-tabs">
+    <button class="tab-btn active" data-module="schlaf">
+      <span class="tab-icon">🌙</span>Schlaf
+    </button>
+    <button class="tab-btn" data-module="fitness">
+      <span class="tab-icon">🏋️</span>Fitness
+    </button>
+    <button class="tab-btn" data-module="ernaehrung">
+      <span class="tab-icon">🥗</span>Essen
+    </button>
+    <button class="tab-btn" data-module="psyche">
+      <span class="tab-icon">🧘</span>Psyche
+    </button>
+  </div>
+
+  <!-- VOICE CARD -->
+  <div class="card">
+    <div class="mic-area">
+      <button id="mic-btn">🎙</button>
+      <div id="mic-label">Tippe zum Sprechen</div>
+    </div>
+
+    <div id="transcript-box" data-placeholder="Transkript erscheint hier..."></div>
+
+    <div id="status-msg"></div>
+  </div>
+
+  <!-- ── SCHLAF PANEL ── -->
+  <div id="panel-schlaf" class="card module-panel active">
+    <div class="parsed-grid">
+      <div class="parsed-field">
+        <div class="field-label">Datum</div>
+        <div class="field-value"><input type="date" id="schlaf-datum" /></div>
+      </div>
+      <div class="parsed-field">
+        <div class="field-label">Qualität (1–10)</div>
+        <div class="field-value"><input type="number" id="schlaf-quality" min="1" max="10" placeholder="7" /></div>
+      </div>
+      <div class="parsed-field">
+        <div class="field-label">Einschlafzeit</div>
+        <div class="field-value"><input type="time" id="schlaf-einschlaf" /></div>
+      </div>
+      <div class="parsed-field">
+        <div class="field-label">Aufwachzeit</div>
+        <div class="field-value"><input type="time" id="schlaf-aufwach" /></div>
+      </div>
+      <div class="parsed-field full-width">
+        <div class="field-label">Regelmäßigkeit</div>
+        <div class="field-value">
+          <select id="schlaf-regularity">
+            <option value="0-1h Abweichung">0–1h Abweichung</option>
+            <option value="1-2h Abweichung">1–2h Abweichung</option>
+            <option value="2-3h Abweichung">2–3h Abweichung</option>
+            <option value="3h+ Abweichung">3h+ Abweichung</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn btn-secondary" id="schlaf-clear">Leeren</button>
+      <button class="btn btn-primary" id="schlaf-save">→ Notion</button>
+    </div>
+  </div>
+
+  <!-- ── FITNESS PANEL ── -->
+  <div id="panel-fitness" class="card module-panel">
+    <div class="parsed-grid">
+      <div class="parsed-field">
+        <div class="field-label">Datum</div>
+        <div class="field-value"><input type="date" id="fitness-datum" /></div>
+      </div>
+      <div class="parsed-field">
+        <div class="field-label">Dauer (Min)</div>
+        <div class="field-value"><input type="number" id="fitness-dauer" min="0" placeholder="60" /></div>
+      </div>
+      <div class="parsed-field">
+        <div class="field-label">Trainingstyp</div>
+        <div class="field-value">
+          <select id="fitness-typ">
+            <option value="Kraft">Kraft</option>
+            <option value="Cardio">Cardio</option>
+            <option value="Mobility">Mobility</option>
+            <option value="Sport">Sport</option>
+            <option value="Geplanter Restday">Geplanter Restday</option>
+            <option value="Ungeplanter Restday">Ungeplanter Restday</option>
+            <option value="Sonstiges">Sonstiges</option>
+          </select>
+        </div>
+      </div>
+      <div class="parsed-field">
+        <div class="field-label">Intensität</div>
+        <div class="field-value">
+          <select id="fitness-intensitaet">
+            <option value="Leicht">Leicht</option>
+            <option value="Moderat" selected>Moderat</option>
+            <option value="Intensiv">Intensiv</option>
+            <option value="Max">Max</option>
+          </select>
+        </div>
+      </div>
+      <div class="parsed-field full-width">
+        <div class="field-label">Trainingsqualität (1–10)</div>
+        <div class="field-value">
+          <input type="range" id="fitness-qualitaet" min="1" max="10" value="7" />
+          <div class="range-labels"><span>1</span><span id="fitness-q-val">7</span><span>10</span></div>
+        </div>
+      </div>
+      <div class="parsed-field full-width">
+        <div class="field-label">Muskelgruppen</div>
+        <div class="tag-select" id="fitness-muskeln">
+          <span class="tag" data-val="Brust">Brust</span>
+          <span class="tag" data-val="Rücken">Rücken</span>
+          <span class="tag" data-val="Schultern">Schultern</span>
+          <span class="tag" data-val="Bizeps">Bizeps</span>
+          <span class="tag" data-val="Trizeps">Trizeps</span>
+          <span class="tag" data-val="Bauch">Bauch</span>
+          <span class="tag" data-val="Quadrizeps">Quadrizeps</span>
+          <span class="tag" data-val="Hamstrings">Hamstrings</span>
+          <span class="tag" data-val="Gesäß">Gesäß</span>
+          <span class="tag" data-val="Waden">Waden</span>
+          <span class="tag" data-val="Unterarme">Unterarme</span>
+          <span class="tag" data-val="Nacken">Nacken</span>
+        </div>
+      </div>
+      <div class="parsed-field full-width">
+        <div class="field-label">Notizen</div>
+        <div class="field-value"><input type="text" id="fitness-notizen" placeholder="Optionale Notizen..." /></div>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn btn-secondary" id="fitness-clear">Leeren</button>
+      <button class="btn btn-primary" id="fitness-save">→ Notion</button>
+    </div>
+  </div>
+
+  <!-- ── ERNÄHRUNG PANEL ── -->
+  <div id="panel-ernaehrung" class="card module-panel">
+    <div class="parsed-grid">
+      <div class="parsed-field full-width">
+        <div class="field-label">Datum</div>
+        <div class="field-value"><input type="date" id="ernaehrung-datum" /></div>
+      </div>
+      <div class="parsed-field">
+        <div class="field-label">Kalorien (kcal)</div>
+        <div class="field-value"><input type="number" id="ernaehrung-kalorien" min="0" placeholder="2800" /></div>
+      </div>
+      <div class="parsed-field">
+        <div class="field-label">Protein (g)</div>
+        <div class="field-value"><input type="number" id="ernaehrung-protein" min="0" placeholder="180" /></div>
+      </div>
+      <div class="parsed-field">
+        <div class="field-label">Carbs (g)</div>
+        <div class="field-value"><input type="number" id="ernaehrung-carbs" min="0" placeholder="300" /></div>
+      </div>
+      <div class="parsed-field">
+        <div class="field-label">Fett (g)</div>
+        <div class="field-value"><input type="number" id="ernaehrung-fett" min="0" placeholder="80" /></div>
+      </div>
+      <div class="parsed-field full-width">
+        <div class="field-label">Wasser (L)</div>
+        <div class="field-value">
+          <input type="range" id="ernaehrung-wasser" min="0" max="5" step="0.1" value="2.5" />
+          <div class="range-labels"><span>0L</span><span id="wasser-val">2.5L</span><span>5L</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn btn-secondary" id="ernaehrung-clear">Leeren</button>
+      <button class="btn btn-primary" id="ernaehrung-save">→ Notion</button>
+    </div>
+  </div>
+
+  <!-- ── PSYCHE PANEL ── -->
+  <div id="panel-psyche" class="card module-panel">
+    <div class="parsed-grid">
+      <div class="parsed-field full-width">
+        <div class="field-label">Datum</div>
+        <div class="field-value"><input type="date" id="psyche-datum" /></div>
+      </div>
+      <div class="parsed-field full-width">
+        <div class="field-label">Bildschirmzeit (h)</div>
+        <div class="field-value">
+          <input type="range" id="psyche-screen" min="0" max="16" step="0.5" value="4" />
+          <div class="range-labels"><span>0h</span><span id="screen-val">4h</span><span>16h</span></div>
+        </div>
+      </div>
+      <div class="parsed-field full-width">
+        <div class="field-label">Energie (0–10)</div>
+        <div class="field-value">
+          <input type="range" id="psyche-energie" min="0" max="10" value="7" />
+          <div class="range-labels"><span>0</span><span id="energie-val">7</span><span>10</span></div>
+        </div>
+      </div>
+      <div class="parsed-field full-width">
+        <div class="field-label">Stimmung (0–10)</div>
+        <div class="field-value">
+          <input type="range" id="psyche-stimmung" min="0" max="10" value="7" />
+          <div class="range-labels"><span>0</span><span id="stimmung-val">7</span><span>10</span></div>
+        </div>
+      </div>
+      <div class="parsed-field full-width">
+        <div class="field-label">Stresslevel (0–10)</div>
+        <div class="field-value">
+          <input type="range" id="psyche-stress" min="0" max="10" value="3" />
+          <div class="range-labels"><span>0</span><span id="stress-val">3</span><span>10</span></div>
+        </div>
+      </div>
+      <div class="parsed-field full-width">
+        <div class="field-label">Journaling heute</div>
+        <div class="tag-select">
+          <span class="tag" id="journaling-ja" data-val="true">✓ Ja</span>
+          <span class="tag" id="journaling-nein" data-val="false">✗ Nein</span>
+        </div>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn btn-secondary" id="psyche-clear">Leeren</button>
+      <button class="btn btn-primary" id="psyche-save">→ Notion</button>
+    </div>
+  </div>
+
+</main>
+
+<!-- ── SETUP MODAL ── -->
+<div id="setup-modal">
+  <div class="setup-card">
+    <div class="setup-title">⚙ Setup</div>
+
+    <div class="setup-group">
+      <label>Anthropic API Key</label>
+      <input type="password" id="inp-ak" placeholder="sk-ant-..." />
+    </div>
+
+    <div class="setup-group">
+      <label>Notion Integration Token</label>
+      <input type="password" id="inp-nt" placeholder="ntn_..." />
+    </div>
+
+    <div class="setup-group">
+      <label>Datenbank-IDs</label>
+      <div class="db-ids-grid">
+        <div>
+          <label style="font-size:10px; color: var(--text-dim);">🌙 Schlaf DB</label>
+          <input type="text" id="inp-db-schlaf" placeholder="30cdded55d2180538fe7c6dd0ab0428b" />
+        </div>
+        <div>
+          <label style="font-size:10px; color: var(--text-dim);">🏋️ Fitness DB</label>
+          <input type="text" id="inp-db-fitness" placeholder="343dded55d21812eb133f8f269d25358" />
+        </div>
+        <div>
+          <label style="font-size:10px; color: var(--text-dim);">🥗 Ernährung DB</label>
+          <input type="text" id="inp-db-ernaehrung" placeholder="343dded55d2181e08d6cf8ad8c48035a" />
+        </div>
+        <div>
+          <label style="font-size:10px; color: var(--text-dim);">🧘 Psyche DB</label>
+          <input type="text" id="inp-db-psyche" placeholder="343dded55d21818b8b45d8e3f36aee21" />
+        </div>
+      </div>
+    </div>
+
+    <div class="setup-hint">
+      Keys werden nur im localStorage deines Browsers gespeichert.<br/>
+      Notion Integration muss Zugriff auf alle 4 Datenbanken haben.
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-secondary" id="setup-cancel">Abbrechen</button>
+      <button class="btn btn-primary" id="setup-save">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── CLAUDE PROMPTS ────────────────────────────────────────────────────────
+
+const PROMPTS = {
+  schlaf: (text) => `
+Du bist ein Datenparsing-Assistent für SomaOS. Extrahiere aus dem folgenden Sprachtext Schlafdaten.
+Antworte NUR mit einem JSON-Objekt, ohne Markdown, ohne Erklärung.
+
+Felder (alle optional, null wenn nicht erkennbar):
+- datum: ISO-Datum "YYYY-MM-DD" (heute = ${todayISO()})
+- einschlafzeit: "HH:MM" (24h)
+- aufwachzeit: "HH:MM" (24h)
+- schlaf_quality: Zahl 1–10
+- regularity: Einer von ["0-1h Abweichung", "1-2h Abweichung", "2-3h Abweichung", "3h+ Abweichung"]
+
+Beispiel: {"datum":"2025-05-01","einschlafzeit":"23:30","aufwachzeit":"07:00","schlaf_quality":8,"regularity":"0-1h Abweichung"}
+
+Sprachtext: "${text}"
+`.trim(),
+
+  fitness: (text) => `
+Du bist ein Datenparsing-Assistent für SomaOS. Extrahiere aus dem Sprachtext Fitnessdaten.
+Antworte NUR mit einem JSON-Objekt, ohne Markdown, ohne Erklärung.
+
+Felder (alle optional, null wenn nicht erkennbar):
+- datum: ISO-Datum "YYYY-MM-DD" (heute = ${todayISO()})
+- dauer: Zahl in Minuten
+- intensitaet: Einer von ["Leicht", "Moderat", "Intensiv", "Max"]
+- trainingstyp: Einer von ["Kraft", "Cardio", "Mobility", "Sport", "Geplanter Restday", "Ungeplanter Restday", "Sonstiges"]
+- trainingsqualitaet: Zahl 1–10
+- muskelgruppen: Array aus ["Brust","Rücken","Schultern","Bizeps","Trizeps","Bauch","Quadrizeps","Hamstrings","Gesäß","Waden","Unterarme","Nacken"]
+- notizen: String oder null
+
+Sprachtext: "${text}"
+`.trim(),
+
+  ernaehrung: (text) => `
+Du bist ein Datenparsing-Assistent für SomaOS. Extrahiere aus dem Sprachtext Ernährungsdaten.
+Antworte NUR mit einem JSON-Objekt, ohne Markdown, ohne Erklärung.
+
+Felder (alle optional, null wenn nicht erkennbar):
+- datum: ISO-Datum "YYYY-MM-DD" (heute = ${todayISO()})
+- kalorien: Zahl (kcal)
+- protein: Zahl (g)
+- carbs: Zahl (g)
+- fett: Zahl (g)
+- wasser: Zahl (Liter, z.B. 2.5)
+
+Sprachtext: "${text}"
+`.trim(),
+
+  psyche: (text) => `
+Du bist ein Datenparsing-Assistent für SomaOS. Extrahiere aus dem Sprachtext Psyche/Mindfulness-Daten.
+Antworte NUR mit einem JSON-Objekt, ohne Markdown, ohne Erklärung.
+
+Felder (alle optional, null wenn nicht erkennbar):
+- datum: ISO-Datum "YYYY-MM-DD" (heute = ${todayISO()})
+- bildschirmzeit: Zahl in Stunden (z.B. 3.5)
+- energie: Zahl 0–10
+- stimmung: Zahl 0–10
+- stresslevel: Zahl 0–10
+- journaling: true oder false
+
+Sprachtext: "${text}"
+`.trim()
+};
+
+// ─── STATE ────────────────────────────────────────────────────────────────
+
+let activeModule = 'schlaf';
+let recognition = null;
+let isRecording = false;
+
+function todayISO() {
+  return new Date().toISOString().split('T')[0];
+}
+
+function tzOffset() {
+  const off = -new Date().getTimezoneOffset();
+  const h = String(Math.floor(Math.abs(off) / 60)).padStart(2, '0');
+  const m = String(Math.abs(off) % 60).padStart(2, '0');
+  return (off >= 0 ? '+' : '-') + h + ':' + m;
+}
+
+function getKeys() {
+  return {
+    ak:          localStorage.getItem('soma_ak') || '',
+    nt:          localStorage.getItem('soma_nt') || '',
+    db_schlaf:   localStorage.getItem('soma_db_schlaf')     || '30cdded55d2180538fe7c6dd0ab0428b',
+    db_fitness:  localStorage.getItem('soma_db_fitness')    || '343dded55d21812eb133f8f269d25358',
+    db_ernaehrung: localStorage.getItem('soma_db_ernaehrung') || '343dded55d2181e08d6cf8ad8c48035a',
+    db_psyche:   localStorage.getItem('soma_db_psyche')     || '343dded55d21818b8b45d8e3f36aee21'
+  };
+}
+
+function dbIdForModule(mod) {
+  const k = getKeys();
+  return { schlaf: k.db_schlaf, fitness: k.db_fitness, ernaehrung: k.db_ernaehrung, psyche: k.db_psyche }[mod];
+}
+
+// ─── UI HELPERS ────────────────────────────────────────────────────────────
+
+function setStatus(msg, type = '') {
+  const el = document.getElementById('status-msg');
+  el.textContent = msg;
+  el.className = type;
+}
+
+function setMicLabel(txt) {
+  document.getElementById('mic-label').textContent = txt;
+}
+
+// ─── SETUP MODAL ──────────────────────────────────────────────────────────
+
+document.getElementById('setup-btn').addEventListener('click', () => {
+  const k = getKeys();
+  document.getElementById('inp-ak').value = k.ak;
+  document.getElementById('inp-nt').value = k.nt;
+  document.getElementById('inp-db-schlaf').value = k.db_schlaf;
+  document.getElementById('inp-db-fitness').value = k.db_fitness;
+  document.getElementById('inp-db-ernaehrung').value = k.db_ernaehrung;
+  document.getElementById('inp-db-psyche').value = k.db_psyche;
+  document.getElementById('setup-modal').classList.add('open');
+});
+
+document.getElementById('setup-cancel').addEventListener('click', () => {
+  document.getElementById('setup-modal').classList.remove('open');
+});
+
+document.getElementById('setup-save').addEventListener('click', () => {
+  localStorage.setItem('soma_ak', document.getElementById('inp-ak').value.trim());
+  localStorage.setItem('soma_nt', document.getElementById('inp-nt').value.trim());
+  localStorage.setItem('soma_db_schlaf', document.getElementById('inp-db-schlaf').value.trim());
+  localStorage.setItem('soma_db_fitness', document.getElementById('inp-db-fitness').value.trim());
+  localStorage.setItem('soma_db_ernaehrung', document.getElementById('inp-db-ernaehrung').value.trim());
+  localStorage.setItem('soma_db_psyche', document.getElementById('inp-db-psyche').value.trim());
+  document.getElementById('setup-modal').classList.remove('open');
+  setStatus('Setup gespeichert ✓', 'success');
+  setTimeout(() => setStatus(''), 2000);
+});
+
+// ─── MODULE TABS ───────────────────────────────────────────────────────────
+
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    activeModule = btn.dataset.module;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+
+    document.querySelectorAll('.module-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById(`panel-${activeModule}`).classList.add('active');
+
+    setStatus('');
+    document.getElementById('transcript-box').textContent = '';
+    setMicLabel('Tippe zum Sprechen');
+  });
+});
+
+// ─── SLIDERS ──────────────────────────────────────────────────────────────
+
+function liveSlider(id, displayId, suffix = '') {
+  const el = document.getElementById(id);
+  const disp = document.getElementById(displayId);
+  el.addEventListener('input', () => { disp.textContent = el.value + suffix; });
+}
+
+liveSlider('fitness-qualitaet', 'fitness-q-val');
+liveSlider('ernaehrung-wasser', 'wasser-val', 'L');
+liveSlider('psyche-screen', 'screen-val', 'h');
+liveSlider('psyche-energie', 'energie-val');
+liveSlider('psyche-stimmung', 'stimmung-val');
+liveSlider('psyche-stress', 'stress-val');
+
+// ─── MUSCLE TAG TOGGLE ────────────────────────────────────────────────────
+
+document.querySelectorAll('#fitness-muskeln .tag').forEach(tag => {
+  tag.addEventListener('click', () => tag.classList.toggle('selected'));
+});
+
+// ─── JOURNALING TOGGLE ────────────────────────────────────────────────────
+
+document.getElementById('journaling-ja').addEventListener('click', () => {
+  document.getElementById('journaling-ja').classList.add('selected');
+  document.getElementById('journaling-nein').classList.remove('selected');
+});
+document.getElementById('journaling-nein').addEventListener('click', () => {
+  document.getElementById('journaling-nein').classList.add('selected');
+  document.getElementById('journaling-ja').classList.remove('selected');
+});
+
+// ─── SET TODAY AS DEFAULT ─────────────────────────────────────────────────
+
+['schlaf-datum','fitness-datum','ernaehrung-datum','psyche-datum'].forEach(id => {
+  document.getElementById(id).value = todayISO();
+});
+
+// ─── SPEECH RECOGNITION ───────────────────────────────────────────────────
+
+function setupRecognition() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) return null;
+  const r = new SR();
+  r.lang = 'de-DE';
+  r.continuous = false;
+  r.interimResults = true;
+  return r;
+}
+
+document.getElementById('mic-btn').addEventListener('click', () => {
+  if (isRecording) {
+    recognition && recognition.stop();
+    return;
+  }
+
+  recognition = setupRecognition();
+  if (!recognition) {
+    setStatus('Speech Recognition nicht unterstützt', 'error');
+    return;
+  }
+
+  const transcriptBox = document.getElementById('transcript-box');
+  const micBtn = document.getElementById('mic-btn');
+  let finalText = '';
+
+
+  recognition.onstart = () => {
+    isRecording = true;
+    micBtn.classList.add('recording');
+    micBtn.textContent = '⏹';
+    setMicLabel('Aufnahme läuft...');
+    setStatus('');
+    transcriptBox.textContent = '';
+  };
+
+  recognition.onresult = (e) => {
+    let interim = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) finalText += e.results[i][0].transcript + ' ';
+      else interim += e.results[i][0].transcript;
+    }
+    transcriptBox.textContent = (finalText + interim).trim();
+  };
+
+  recognition.onerror = (e) => {
+    setStatus('Fehler: ' + e.error, 'error');
+    stopRecording();
+  };
+
+  recognition.onend = () => {
+    stopRecording();
+    const text = (finalText || transcriptBox.textContent).trim();
+    if (text.length > 2) {
+      parseWithClaude(text);
+    }
+  };
+
+  recognition.start();
+});
+
+function stopRecording() {
+  isRecording = false;
+  const micBtn = document.getElementById('mic-btn');
+  micBtn.classList.remove('recording');
+  micBtn.textContent = '🎙';
+  setMicLabel('Tippe zum Sprechen');
+}
+
+// ─── CLAUDE PARSING ────────────────────────────────────────────────────────
+
+async function parseWithClaude(text) {
+  const { ak } = getKeys();
+  if (!ak) {
+    setStatus('Kein Anthropic API Key → Setup', 'error');
+    return;
+  }
+
+  setStatus('KI analysiert...', 'loading');
+
+  try {
+    const res = await fetch('/api/claude', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        anthropic_key: ak,
+        prompt: PROMPTS[activeModule](text)
+      })
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Claude Fehler');
+
+    const raw = (data.text || '').replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(raw);
+
+    fillFields(activeModule, parsed);
+    setStatus('Felder befüllt ✓', 'success');
+    setTimeout(() => setStatus(''), 2000);
+
+  } catch (err) {
+    setStatus('Parse-Fehler: ' + err.message, 'error');
+  }
+}
+
+// ─── FILL FIELDS ──────────────────────────────────────────────────────────
+
+function fillFields(mod, d) {
+  const set = (id, val) => {
+    if (val == null) return;
+    const el = document.getElementById(id);
+    if (el) el.value = val;
+  };
+
+  const setSlider = (id, displayId, val, suffix = '') => {
+    if (val == null) return;
+    const el = document.getElementById(id);
+    const disp = document.getElementById(displayId);
+    if (el) { el.value = val; if (disp) disp.textContent = val + suffix; }
+  };
+
+  if (mod === 'schlaf') {
+    set('schlaf-datum', d.datum);
+    set('schlaf-einschlaf', d.einschlafzeit);
+    set('schlaf-aufwach', d.aufwachzeit);
+    set('schlaf-quality', d.schlaf_quality);
+    if (d.regularity) set('schlaf-regularity', d.regularity);
+  }
+
+  else if (mod === 'fitness') {
+    set('fitness-datum', d.datum);
+    set('fitness-dauer', d.dauer);
+    if (d.trainingstyp) set('fitness-typ', d.trainingstyp);
+    if (d.intensitaet) set('fitness-intensitaet', d.intensitaet);
+    setSlider('fitness-qualitaet', 'fitness-q-val', d.trainingsqualitaet);
+    set('fitness-notizen', d.notizen);
+    // Muskelgruppen
+    if (d.muskelgruppen && Array.isArray(d.muskelgruppen)) {
+      document.querySelectorAll('#fitness-muskeln .tag').forEach(tag => {
+        if (d.muskelgruppen.includes(tag.dataset.val)) tag.classList.add('selected');
+        else tag.classList.remove('selected');
+      });
+    }
+  }
+
+  else if (mod === 'ernaehrung') {
+    set('ernaehrung-datum', d.datum);
+    set('ernaehrung-kalorien', d.kalorien);
+    set('ernaehrung-protein', d.protein);
+    set('ernaehrung-carbs', d.carbs);
+    set('ernaehrung-fett', d.fett);
+    setSlider('ernaehrung-wasser', 'wasser-val', d.wasser, 'L');
+  }
+
+  else if (mod === 'psyche') {
+    set('psyche-datum', d.datum);
+    setSlider('psyche-screen', 'screen-val', d.bildschirmzeit, 'h');
+    setSlider('psyche-energie', 'energie-val', d.energie);
+    setSlider('psyche-stimmung', 'stimmung-val', d.stimmung);
+    setSlider('psyche-stress', 'stress-val', d.stresslevel);
+    if (d.journaling != null) {
+      document.getElementById('journaling-ja').classList.toggle('selected', d.journaling === true);
+      document.getElementById('journaling-nein').classList.toggle('selected', d.journaling === false);
+    }
+  }
+}
+
+// ─── SAVE TO NOTION ────────────────────────────────────────────────────────
+
+async function saveToNotion(mod, payload) {
+  const { nt } = getKeys();
+  const dbId = dbIdForModule(mod);
+
+  if (!nt) { setStatus('Kein Notion Token → Setup', 'error'); return; }
+  if (!dbId) { setStatus('Keine DB-ID → Setup', 'error'); return; }
+
+  setStatus('Speichert in Notion...', 'loading');
+
+  try {
+    const res = await fetch('/api/notion', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-notion-token': nt,
+        'x-database-id': dbId
+      },
+      body: JSON.stringify({ modul: mod, ...payload })
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Notion Fehler');
+
+    setStatus('✓ Eingetragen in Notion!', 'success');
+    setTimeout(() => setStatus(''), 3000);
+  } catch (err) {
+    setStatus('Notion Fehler: ' + err.message, 'error');
+  }
+}
+
+// ─── SAVE BUTTONS ─────────────────────────────────────────────────────────
+
+// Schlaf
+document.getElementById('schlaf-save').addEventListener('click', () => {
+  saveToNotion('schlaf', {
+    datum:          document.getElementById('schlaf-datum').value,
+    einschlafzeit:  document.getElementById('schlaf-einschlaf').value,
+    aufwachzeit:    document.getElementById('schlaf-aufwach').value,
+    schlaf_quality: document.getElementById('schlaf-quality').value,
+    regularity:     document.getElementById('schlaf-regularity').value,
+    tz_offset:      tzOffset()
+  });
+});
+
+// Fitness
+document.getElementById('fitness-save').addEventListener('click', () => {
+  const muskeln = [...document.querySelectorAll('#fitness-muskeln .tag.selected')].map(t => t.dataset.val);
+  saveToNotion('fitness', {
+    datum:             document.getElementById('fitness-datum').value,
+    dauer:             document.getElementById('fitness-dauer').value,
+    intensitaet:       document.getElementById('fitness-intensitaet').value,
+    trainingstyp:      document.getElementById('fitness-typ').value,
+    trainingsqualitaet: document.getElementById('fitness-qualitaet').value,
+    muskelgruppen:     muskeln,
+    notizen:           document.getElementById('fitness-notizen').value
+  });
+});
+
+// Ernährung
+document.getElementById('ernaehrung-save').addEventListener('click', () => {
+  saveToNotion('ernaehrung', {
+    datum:    document.getElementById('ernaehrung-datum').value,
+    kalorien: document.getElementById('ernaehrung-kalorien').value,
+    protein:  document.getElementById('ernaehrung-protein').value,
+    carbs:    document.getElementById('ernaehrung-carbs').value,
+    fett:     document.getElementById('ernaehrung-fett').value,
+    wasser:   document.getElementById('ernaehrung-wasser').value
+  });
+});
+
+// Psyche
+document.getElementById('psyche-save').addEventListener('click', () => {
+  const journaling = document.getElementById('journaling-ja').classList.contains('selected')
+    ? true
+    : document.getElementById('journaling-nein').classList.contains('selected')
+    ? false : null;
+  saveToNotion('psyche', {
+    datum:          document.getElementById('psyche-datum').value,
+    bildschirmzeit: document.getElementById('psyche-screen').value,
+    energie:        document.getElementById('psyche-energie').value,
+    stimmung:       document.getElementById('psyche-stimmung').value,
+    stresslevel:    document.getElementById('psyche-stress').value,
+    journaling
+  });
+});
+
+// ─── CLEAR BUTTONS ────────────────────────────────────────────────────────
+
+document.getElementById('schlaf-clear').addEventListener('click', () => {
+  ['schlaf-datum','schlaf-einschlaf','schlaf-aufwach','schlaf-quality'].forEach(id => {
+    document.getElementById(id).value = id === 'schlaf-datum' ? todayISO() : '';
+  });
+  document.getElementById('transcript-box').textContent = '';
+});
+
+document.getElementById('fitness-clear').addEventListener('click', () => {
+  document.getElementById('fitness-datum').value = todayISO();
+  document.getElementById('fitness-dauer').value = '';
+  document.getElementById('fitness-notizen').value = '';
+  document.getElementById('fitness-qualitaet').value = 7;
+  document.getElementById('fitness-q-val').textContent = '7';
+  document.querySelectorAll('#fitness-muskeln .tag').forEach(t => t.classList.remove('selected'));
+  document.getElementById('transcript-box').textContent = '';
+});
+
+document.getElementById('ernaehrung-clear').addEventListener('click', () => {
+  document.getElementById('ernaehrung-datum').value = todayISO();
+  ['ernaehrung-kalorien','ernaehrung-protein','ernaehrung-carbs','ernaehrung-fett'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('ernaehrung-wasser').value = 2.5;
+  document.getElementById('wasser-val').textContent = '2.5L';
+  document.getElementById('transcript-box').textContent = '';
+});
+
+document.getElementById('psyche-clear').addEventListener('click', () => {
+  document.getElementById('psyche-datum').value = todayISO();
+  document.getElementById('psyche-screen').value = 4;
+  document.getElementById('screen-val').textContent = '4h';
+  document.getElementById('psyche-energie').value = 7;
+  document.getElementById('energie-val').textContent = '7';
+  document.getElementById('psyche-stimmung').value = 7;
+  document.getElementById('stimmung-val').textContent = '7';
+  document.getElementById('psyche-stress').value = 3;
+  document.getElementById('stress-val').textContent = '3';
+  document.getElementById('journaling-ja').classList.remove('selected');
+  document.getElementById('journaling-nein').classList.remove('selected');
+  document.getElementById('transcript-box').textContent = '';
+});
+
+</script>
+</body>
+</html>
