@@ -725,84 +725,46 @@ async function saveToNotion() {
   document.getElementById('actionsCard').classList.remove('visible');
 
   const today = new Date().toISOString().split('T')[0];
-  let properties = { 'Name': { title: [{ text: { content: today } }] } };
-
-  if (currentModule === 'schlaf') {
-    const wakeDate = (parsedEntry.aufwachzeit < parsedEntry.einschlafzeit)
-      ? new Date(Date.now() + 86400000).toISOString().split('T')[0] : today;
-    if (parsedEntry.einschlafzeit) properties['Einschlafzeit'] = { date: { start: `${today}T${parsedEntry.einschlafzeit}:00` } };
-    if (parsedEntry.aufwachzeit)   properties['Aufwachzeit']   = { date: { start: `${wakeDate}T${parsedEntry.aufwachzeit}:00` } };
-    if (parsedEntry.schlaf_quality) properties['Schlaf Quality'] = { number: Number(parsedEntry.schlaf_quality) };
-    if (parsedEntry.regularity)    properties['Regularity']   = { select: { name: parsedEntry.regularity } };
-    properties['Datum'] = { date: { start: today } };
-  }
 
   try {
+    let body = { notion_token: NOTION_TOKEN, database_id: BACKEND_DB_ID, datum: today };
+
+    if (currentModule === 'schlaf') {
+      body.einschlafzeit = parsedEntry.einschlafzeit;
+      body.aufwachzeit   = parsedEntry.aufwachzeit;
+      body.schlaf_quality = parsedEntry.schlaf_quality;
+      body.regularity    = parsedEntry.regularity;
+    }
+
     const response = await fetch('/api/notion', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ notion_token: NOTION_TOKEN, database_id: BACKEND_DB_ID, properties })
+      headers: {
+        'Content-Type': 'application/json',
+        'x-notion-token': NOTION_TOKEN,
+        'x-database-id': BACKEND_DB_ID
+      },
+      body: JSON.stringify({
+        datum: body.datum,
+        einschlafzeit: body.einschlafzeit,
+        aufwachzeit: body.aufwachzeit,
+        schlaf_quality: body.schlaf_quality,
+        regularity: body.regularity
+      })
     });
+
     const data = await response.json();
     if (response.ok) {
       showStatus('✓ Eintrag gespeichert', 'success');
       addToHistory();
       setTimeout(resetAll, 2000);
     } else {
-      showStatus('Fehler: ' + (data.message || 'Unbekannt'), 'error');
+      showStatus('Fehler: ' + (data.error || 'Unbekannt'), 'error');
       document.getElementById('actionsCard').classList.add('visible');
     }
   } catch(e) {
-    showStatus('Verbindungsfehler', 'error');
+    showStatus('Verbindungsfehler: ' + e.message, 'error');
     document.getElementById('actionsCard').classList.add('visible');
   }
 }
 
-function addToHistory() {
-  const NAMES = { schlaf: '🌙 Schlaf', fitness: '💪 Fitness', ernaehrung: '🥗 Ernährung', mindfulness: '🧘 Psyche' };
-  const SUMS = {
-    schlaf: `${parsedEntry.einschlafzeit} → ${parsedEntry.aufwachzeit} · Q ${parsedEntry.schlaf_quality}/10`,
-    fitness: `${parsedEntry.workout_typ} · ${parsedEntry.dauer_min} min`,
-    ernaehrung: `${parsedEntry.kalorien} kcal · ${parsedEntry.protein_g}g Protein`,
-    mindfulness: `Stimmung ${parsedEntry.stimmung}/10 · Energie ${parsedEntry.energie}/10`
-  };
-  sessionHistory.unshift({ module: NAMES[currentModule], summary: SUMS[currentModule], time: new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) });
-  renderHistory();
-}
 
-function renderHistory() {
-  const list = document.getElementById('historyList');
-  if (!sessionHistory.length) { list.innerHTML = '<div class="empty">Noch keine Einträge</div>'; return; }
-  list.innerHTML = sessionHistory.map(h => `
-    <div class="history-item">
-      <div class="history-left">
-        <span class="history-module">${h.module}</span>
-        <span class="history-summary">${h.summary}</span>
-      </div>
-      <div style="display:flex;align-items:center;gap:6px;">
-        <span class="history-time">${h.time}</span>
-        <div class="dot-success"></div>
-      </div>
-    </div>
-  `).join('');
-}
-
-function showStatus(msg, type) {
-  const el = document.getElementById('statusCard');
-  el.innerHTML = msg;
-  el.className = 'glass status-card visible ' + type;
-}
-
-function hideStatus() { document.getElementById('statusCard').className = 'glass status-card'; }
-
-function resetAll() {
-  parsedEntry = null;
-  document.getElementById('transcriptCard').classList.remove('visible');
-  document.getElementById('previewCard').classList.remove('visible');
-  document.getElementById('actionsCard').classList.remove('visible');
-  document.getElementById('recordLabel').textContent = 'Tippen zum Aufnehmen';
-  hideStatus();
-}
-</script>
-</body>
-</html>
