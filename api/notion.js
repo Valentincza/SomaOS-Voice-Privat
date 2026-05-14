@@ -1,9 +1,15 @@
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
+  const notion_token = req.headers['x-notion-token'];
+  const database_id  = req.headers['x-database-id'];
+
+  if (!notion_token || !database_id) {
+    return res.status(400).json({ error: 'Missing headers: x-notion-token or x-database-id' });
+  }
+
   let body = {};
   try {
-    // Vercel sometimes needs manual parsing
     if (typeof req.body === 'object' && req.body !== null) {
       body = req.body;
     } else {
@@ -12,17 +18,14 @@ export default async function handler(req, res) {
         req.on('data', chunk => data += chunk);
         req.on('end', () => resolve(data));
       });
-      body = JSON.parse(raw);
+      body = raw ? JSON.parse(raw) : {};
     }
   } catch(e) {
     return res.status(400).json({ error: 'Body parse error: ' + e.message });
   }
 
-  const { notion_token, database_id, datum, einschlafzeit, aufwachzeit, schlaf_quality, regularity } = body;
-
-  console.log('parsed body:', JSON.stringify({ database_id, datum, einschlafzeit, aufwachzeit, schlaf_quality, regularity }));
-
-  if (!notion_token || !database_id) return res.status(400).json({ error: 'Missing notion_token or database_id' });
+  const { datum, einschlafzeit, aufwachzeit, schlaf_quality, regularity } = body;
+  console.log('fields:', { datum, einschlafzeit, aufwachzeit, schlaf_quality, regularity });
 
   const today = datum || new Date().toISOString().split('T')[0];
 
@@ -45,6 +48,8 @@ export default async function handler(req, res) {
   if (schlaf_quality != null) properties['Schlaf Quality'] = { number: Number(schlaf_quality) };
   if (regularity)    properties['Regularity']   = { select: { name: regularity } };
 
+  console.log('properties:', JSON.stringify(properties));
+
   try {
     const response = await fetch('https://api.notion.com/v1/pages', {
       method: 'POST',
@@ -57,7 +62,7 @@ export default async function handler(req, res) {
     });
 
     const data = await response.json();
-    console.log('notion response:', response.status, JSON.stringify(data).slice(0, 300));
+    console.log('notion:', response.status, JSON.stringify(data).slice(0, 200));
 
     if (!response.ok) return res.status(response.status).json({ error: data.message || 'Notion error' });
     return res.status(200).json({ ok: true });
