@@ -3,6 +3,8 @@ export default async function handler(req, res) {
 
   const { notion_token, database_id, datum, einschlafzeit, aufwachzeit, schlaf_quality, regularity } = req.body;
 
+  console.log('notion proxy called:', { database_id, datum, einschlafzeit, aufwachzeit, schlaf_quality, regularity });
+
   if (!notion_token || !database_id) return res.status(400).json({ error: 'Missing fields' });
 
   const today = datum || new Date().toISOString().split('T')[0];
@@ -17,14 +19,15 @@ export default async function handler(req, res) {
   const properties = {
     Name: { title: [{ text: { content: today } }] },
     Datum: { date: { start: today } },
-    // Always link to the Settings page so scores calculate correctly
-    Settings: { relation: [{ id: '30ddded5-5d21-80bb-9ac3-d1ee4f02c3c2' }] }
+    Settings: { relation: [{ id: '30ddded55d2180bb9ac3d1ee4f02c3c2' }] }
   };
 
   if (einschlafzeit) properties['Einschlafzeit'] = { date: { start: `${today}T${einschlafzeit}:00` } };
   if (aufwachzeit)   properties['Aufwachzeit']   = { date: { start: `${wakeDate}T${aufwachzeit}:00` } };
   if (schlaf_quality !== undefined) properties['Schlaf Quality'] = { number: Number(schlaf_quality) };
   if (regularity)    properties['Regularity']   = { select: { name: regularity } };
+
+  console.log('properties:', JSON.stringify(properties));
 
   try {
     const response = await fetch('https://api.notion.com/v1/pages', {
@@ -38,10 +41,13 @@ export default async function handler(req, res) {
     });
 
     const data = await response.json();
-    if (!response.ok) return res.status(response.status).json({ error: data.message || 'Notion error' });
+    console.log('notion response:', response.status, JSON.stringify(data));
+
+    if (!response.ok) return res.status(response.status).json({ error: data.message || 'Notion error', details: data });
     return res.status(200).json({ ok: true });
 
   } catch (e) {
+    console.log('fetch error:', e.message);
     return res.status(500).json({ error: e.message });
   }
 }
