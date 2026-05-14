@@ -1,15 +1,26 @@
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  // Parse body manually if needed
-  let body = req.body;
-  if (typeof body === 'string') {
-    try { body = JSON.parse(body); } catch(e) { return res.status(400).json({ error: 'Invalid JSON' }); }
+  let body = {};
+  try {
+    // Vercel sometimes needs manual parsing
+    if (typeof req.body === 'object' && req.body !== null) {
+      body = req.body;
+    } else {
+      const raw = await new Promise((resolve) => {
+        let data = '';
+        req.on('data', chunk => data += chunk);
+        req.on('end', () => resolve(data));
+      });
+      body = JSON.parse(raw);
+    }
+  } catch(e) {
+    return res.status(400).json({ error: 'Body parse error: ' + e.message });
   }
 
-  const { notion_token, database_id, datum, einschlafzeit, aufwachzeit, schlaf_quality, regularity } = body || {};
+  const { notion_token, database_id, datum, einschlafzeit, aufwachzeit, schlaf_quality, regularity } = body;
 
-  console.log('body received:', JSON.stringify(body));
+  console.log('parsed body:', JSON.stringify({ database_id, datum, einschlafzeit, aufwachzeit, schlaf_quality, regularity }));
 
   if (!notion_token || !database_id) return res.status(400).json({ error: 'Missing notion_token or database_id' });
 
@@ -25,15 +36,14 @@ export default async function handler(req, res) {
   const properties = {
     Name: { title: [{ text: { content: today } }] },
     Datum: { date: { start: today } },
-    Settings: { relation: [{ id: '30ddded55d2180bb9ac3d1ee4f02c3c2' }] }
+    Settings: { relation: [{ id: '30ddded55d2180bb9ac3d1ee4f02c3c2' }] },
+    'Ernährungs-Settings': { relation: [{ id: '31ddded55d2181379359d2a2dc9a0e67' }] }
   };
 
   if (einschlafzeit) properties['Einschlafzeit'] = { date: { start: `${today}T${einschlafzeit}:00` } };
   if (aufwachzeit)   properties['Aufwachzeit']   = { date: { start: `${wakeDate}T${aufwachzeit}:00` } };
-  if (schlaf_quality !== undefined && schlaf_quality !== null) properties['Schlaf Quality'] = { number: Number(schlaf_quality) };
+  if (schlaf_quality != null) properties['Schlaf Quality'] = { number: Number(schlaf_quality) };
   if (regularity)    properties['Regularity']   = { select: { name: regularity } };
-
-  console.log('sending properties:', JSON.stringify(properties));
 
   try {
     const response = await fetch('https://api.notion.com/v1/pages', {
@@ -47,13 +57,12 @@ export default async function handler(req, res) {
     });
 
     const data = await response.json();
-    console.log('notion response:', response.status, JSON.stringify(data));
+    console.log('notion response:', response.status, JSON.stringify(data).slice(0, 300));
 
     if (!response.ok) return res.status(response.status).json({ error: data.message || 'Notion error' });
     return res.status(200).json({ ok: true });
 
   } catch (e) {
-    console.log('error:', e.message);
     return res.status(500).json({ error: e.message });
   }
 }
