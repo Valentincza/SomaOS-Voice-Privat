@@ -14,140 +14,70 @@ export default async function handler(req, res) {
   }
 
   const body = req.body;
-  const modul = body.modul || 'schlaf'; // schlaf | fitness | ernaehrung | psyche
+  const modul = body.modul || 'schlaf';
 
   let properties = {};
 
-  // ─── SCHLAF ────────────────────────────────────────────────────────────────
+  // SCHLAF
   if (modul === 'schlaf') {
     const { datum, einschlafzeit, aufwachzeit, schlaf_quality, regularity, tz_offset } = body;
-
     properties = {
-      Name: {
-        title: [{ text: { content: datum } }]
-      },
-      Datum: {
-        date: { start: datum }
-      },
-      Einschlafzeit: {
-        date: { start: `${einschlafzeit}${tz_offset}` }
-      },
-      Aufwachzeit: {
-        date: { start: `${aufwachzeit}${tz_offset}` }
-      },
-      'Schlaf Quality': {
-        number: Number(schlaf_quality)
-      },
-      Regularity: {
-        select: { name: regularity }
-      },
-      Settings: {
-        relation: [{ id: '30ddded55d2180bb9ac3d1ee4f02c3c2' }]
-      },
-      'Ernährungs-Settings': {
-        relation: [{ id: '31ddded55d2181379359d2a2dc9a0e67' }]
-      }
+      Name: { title: [{ text: { content: datum } }] },
+      Datum: { date: { start: datum } },
+      Einschlafzeit: { date: { start: `${einschlafzeit}${tz_offset}` } },
+      Aufwachzeit: { date: { start: `${aufwachzeit}${tz_offset}` } },
+      'Schlaf Quality': { number: Number(schlaf_quality) },
+      Regularity: { select: { name: regularity } },
+      Settings: { relation: [{ id: '30ddded55d2180bb9ac3d1ee4f02c3c2' }] },
+      'Ernährungs-Settings': { relation: [{ id: '31ddded55d2181379359d2a2dc9a0e67' }] }
     };
   }
 
-  // ─── FITNESS ───────────────────────────────────────────────────────────────
+  // FITNESS
   else if (modul === 'fitness') {
     const { datum, dauer, intensitaet, trainingstyp, trainingsqualitaet, muskelgruppen, notizen } = body;
-
     properties = {
-      Name: {
-        title: [{ text: { content: datum } }]
-      },
-      Datum: {
-        date: { start: datum }
-      },
-      'Dauer (Min)': {
-        number: Number(dauer)
-      },
-      'Intensität': {
-        select: { name: intensitaet } // Leicht | Moderat | Intensiv | Max
-      },
-      Trainingstyp: {
-        select: { name: trainingstyp } // Kraft | Cardio | Mobility | Sport | Geplanter Restday | Ungeplanter Restday | Sonstiges
-      },
-      Trainingsqualität: {
-        number: Number(trainingsqualitaet)
-      }
+      Name: { title: [{ text: { content: datum } }] },
+      Datum: { date: { start: datum } },
+      'Dauer (Min)': { number: Number(dauer) },
+      'Intensität': { select: { name: intensitaet } },
+      Trainingstyp: { select: { name: trainingstyp } },
+      Trainingsqualität: { number: Number(trainingsqualitaet) }
     };
-
-    // Muskelgruppen als Multi-Select (Array von Strings)
     if (muskelgruppen && muskelgruppen.length > 0) {
-      properties['(Muskelgruppen)'] = {
-        multi_select: muskelgruppen.map(m => ({ name: m }))
-      };
+      properties['(Muskelgruppen)'] = { multi_select: muskelgruppen.map(m => ({ name: m })) };
     }
-
-    // Notizen als Text
     if (notizen) {
-      properties['(Notizen)'] = {
-        rich_text: [{ text: { content: notizen } }]
-      };
+      properties['(Notizen)'] = { rich_text: [{ text: { content: notizen } }] };
     }
   }
 
-  // ─── ERNÄHRUNG ─────────────────────────────────────────────────────────────
+  // ERNAEHRUNG
   else if (modul === 'ernaehrung') {
     const { datum, kalorien, protein, carbs, fett, wasser } = body;
-
     properties = {
-      Name: {
-        title: [{ text: { content: datum } }]
-      },
-      Datum: {
-        date: { start: datum }
-      },
-      'Kalorien (kcal)': {
-        number: Number(kalorien)
-      },
-      'Protein (g)': {
-        number: Number(protein)
-      },
-      'Carbs (g)': {
-        number: Number(carbs)
-      },
-      'Fett (g)': {
-        number: Number(fett)
-      },
-      'Wasser (L)': {
-        number: Number(wasser)
-      },
-      'Ernährungs-Settings': {
-        relation: [{ id: '31ddded55d2181379359d2a2dc9a0e67' }]
-      }
+      Name: { title: [{ text: { content: datum } }] },
+      Datum: { date: { start: datum } },
+      'Kalorien (kcal)': { number: Number(kalorien) },
+      'Protein (g)': { number: Number(protein) },
+      'Carbs (g)': { number: Number(carbs) },
+      'Fett (g)': { number: Number(fett) },
+      'Wasser (L)': { number: Number(wasser) },
+      'Ernährungs-Settings': { relation: [{ id: '31ddded55d2181379359d2a2dc9a0e67' }] }
     };
   }
 
-  // ─── PSYCHE / MINDFULNESS ──────────────────────────────────────────────────
+  // PSYCHE
   else if (modul === 'psyche') {
     const { datum, bildschirmzeit, energie, stimmung, stresslevel, journaling } = body;
-
     properties = {
-      Name: {
-        title: [{ text: { content: datum } }]
-      },
-      Datum: {
-        date: { start: datum }
-      },
-      'Bildschirmzeit (h)': {
-        number: Number(bildschirmzeit)
-      },
-      Energie: {
-        number: Number(energie)
-      },
-      Stimmung: {
-        number: Number(stimmung)
-      },
-      Stresslevel: {
-        number: Number(stresslevel)
-      },
-      Journaling: {
-        checkbox: journaling === true || journaling === 'true'
-      }
+      Name: { title: [{ text: { content: datum } }] },
+      Datum: { date: { start: datum } },
+      'Bildschirmzeit (h)': { number: Number(bildschirmzeit) },
+      Energie: { number: Number(energie) },
+      Stimmung: { number: Number(stimmung) },
+      Stresslevel: { number: Number(stresslevel) },
+      Journaling: { checkbox: journaling === true || journaling === 'true' }
     };
   }
 
@@ -155,7 +85,36 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: `Unbekanntes Modul: ${modul}` });
   }
 
-  // ─── Notion API Call ───────────────────────────────────────────────────────
+  // Heutiger Eintrag: bei Fitness/Ernaehrung/Psyche den Tages-Eintrag aus der
+  // Schlaf-DB (BackendRechner) suchen und als Relation verlinken
+  if (['fitness', 'ernaehrung', 'psyche'].includes(modul)) {
+    const datum = body.datum;
+    const schlafDbId = '30cdded55d2180538fe7c6dd0ab0428b';
+    try {
+      const queryRes = await fetch(`https://api.notion.com/v1/databases/${schlafDbId}/query`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${notionToken}`,
+          'Content-Type': 'application/json',
+          'Notion-Version': '2022-06-28'
+        },
+        body: JSON.stringify({
+          filter: { property: 'Datum', date: { equals: datum } },
+          page_size: 1
+        })
+      });
+      const queryData = await queryRes.json();
+      if (queryRes.ok && queryData.results && queryData.results.length > 0) {
+        properties['Heutiger Eintrag'] = {
+          relation: [{ id: queryData.results[0].id }]
+        };
+      }
+    } catch (e) {
+      console.warn('Heutiger Eintrag lookup fehlgeschlagen:', e.message);
+    }
+  }
+
+  // Notion Seite erstellen
   try {
     const notionRes = await fetch('https://api.notion.com/v1/pages', {
       method: 'POST',
