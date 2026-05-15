@@ -22,16 +22,19 @@ export default async function handler(req, res) {
   if (modul === 'schlaf') {
     const { datum, einschlafzeit, aufwachzeit, schlaf_quality, regularity, tz_offset } = body;
 
-    // Sicherstellen dass Zeitstrings HH:MM Format haben (z.B. "3:15" -> "03:15")
+    // ISO 8601 Datetime bauen: "YYYY-MM-DDTHH:MM+02:00"
+    // Einschlafzeit kann vor Mitternacht sein (= Vortag)
     const padTime = t => t ? t.split(':').map((p, i) => i === 0 ? p.padStart(2, '0') : p).join(':') : t;
-    const einschlafPadded = padTime(einschlafzeit);
-    const aufwachPadded = padTime(aufwachzeit);
+    const einschlafH = parseInt((einschlafzeit || '0:00').split(':')[0]);
+    const einschlafDatum = einschlafH >= 12 ? datum : datum; // immer datum, Nutzer trägt Aufwachtag ein
+    const einschlafISO = `${einschlafDatum}T${padTime(einschlafzeit)}`;
+    const aufwachISO   = `${datum}T${padTime(aufwachzeit)}`;
 
     properties = {
       Name: { title: [{ text: { content: datum } }] },
       Datum: { date: { start: datum } },
-      Einschlafzeit: { date: { start: `${einschlafPadded}${tz_offset}` } },
-      Aufwachzeit: { date: { start: `${aufwachPadded}${tz_offset}` } },
+      Einschlafzeit: { date: { start: `${einschlafISO}${tz_offset}` } },
+      Aufwachzeit: { date: { start: `${aufwachISO}${tz_offset}` } },
       'Schlaf Quality': { number: Number(schlaf_quality) },
       Regularity: { select: { name: regularity } },
       Settings: { relation: [{ id: '30ddded55d2180bb9ac3d1ee4f02c3c2' }] },
