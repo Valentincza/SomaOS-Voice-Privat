@@ -1,61 +1,150 @@
 export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-notion-token, x-database-id');
+
+  if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const notion_token = req.headers['x-notion-token'];
-  const database_id  = req.headers['x-database-id'];
+  const notionToken = req.headers['x-notion-token'];
+  const databaseId  = req.headers['x-database-id'];
 
-  if (!notion_token || !database_id) {
-    return res.status(400).json({ error: 'Missing headers' });
+  if (!notionToken || !databaseId) {
+    return res.status(400).json({ error: 'Missing x-notion-token or x-database-id header' });
   }
 
-  let body = {};
-  try {
-    body = typeof req.body === 'object' && req.body !== null ? req.body : JSON.parse(await new Promise(r => { let d=''; req.on('data',c=>d+=c); req.on('end',()=>r(d)); }));
-  } catch(e) { return res.status(400).json({ error: 'Body parse error' }); }
+  const body = req.body;
+  const modul = body.modul || 'schlaf';
 
-  const { datum, einschlafzeit: rawSleep, aufwachzeit: rawWake, schlaf_quality, regularity, tz_offset } = body;
+  let properties = {};
 
-  // Ensure HH:MM format with leading zeros
-  const padTime = (t) => {
-    if (!t) return t;
-    const parts = t.split(':');
-    return parts[0].padStart(2,'0') + ':' + (parts[1]||'00').padStart(2,'0');
-  };
-  const einschlafzeit = padTime(rawSleep);
-  const aufwachzeit   = padTime(rawWake);
+  // SCHLAF
+  if (modul === 'schlaf') {
+    const { datum, einschlafzeit, aufwachzeit, schlaf_quality, regularity, tz_offset } = body;
 
-  // tz_offset comes from client, e.g. "+02:00" or "-05:00"
-  const tz = tz_offset || '+00:00';
+    // Sicherstellen dass Zeitstrings HH:MM Format haben (z.B. "3:15" -> "03:15")
+    const padTime = t => t ? t.split(':').map((p, i) => i === 0 ? p.padStart(2, '0') : p).join(':') : t;
+    const einschlafPadded = padTime(einschlafzeit);
+    const aufwachPadded = padTime(aufwachzeit);
 
-  const today = datum || new Date().toISOString().split('T')[0];
-  let wakeDate = today;
-  if (einschlafzeit && aufwachzeit && aufwachzeit < einschlafzeit) {
-    const d = new Date(today); d.setDate(d.getDate() + 1);
-    wakeDate = d.toISOString().split('T')[0];
+    properties = {
+      Name: { title: [{ text: { content: datum } }] },
+      Datum: { date: { start: datum } },
+      Einschlafzeit: { date: { start: `${einschlafPadded}${tz_offset}` } },
+      Aufwachzeit: { date: { start: `${aufwachPadded}${tz_offset}` } },
+      'Schlaf Quality': { number: Number(schlaf_quality) },
+      Regularity: { select: { name: regularity } },
+      Settings: { relation: [{ id: '30ddded55d2180bb9ac3d1ee4f02c3c2' }] },
+      'Ernährungs-Settings': { relation: [{ id: '31ddded55d2181379359d2a2dc9a0e67' }] }
+    };
   }
 
-  const properties = {
-    Name: { title: [{ text: { content: today } }] },
-    Datum: { date: { start: today } },
-    Settings: { relation: [{ id: '30ddded55d2180bb9ac3d1ee4f02c3c2' }] },
-    'Ernährungs-Settings': { relation: [{ id: '31ddded55d2181379359d2a2dc9a0e67' }] }
-  };
+  // FITNESS
+  else if (modul === 'fitness') {
+    const { datum, dauer, intensitaet, trainingstyp, trainingsqualitaet, muskelgruppen, notizen } = body;
+    properties = {
+      Name: { title: [{ text: { content: datum } }] },
+      Datum: { date: { start: datum } },
+      'Dauer (Min)': { number: Number(dauer) },
+      'Intensität': { select: { name: intensitaet } },
+      Trainingstyp: { select: { name: trainingstyp } },
+      Trainingsqualität: { number: Number(trainingsqualitaet) }
+    };
+    if (muskelgruppen && muskelgruppen.length > 0) {
+      properties['(Muskelgruppen)'] = { multi_select: muskelgruppen.map(m => ({ name: m })) };
+    }
+    if (notizen) {
+      properties['(Notizen)'] = { rich_text: [{ text: { content: notizen } }] };
+    }
+  }
 
-  if (einschlafzeit) properties['Einschlafzeit'] = { date: { start: `${today}T${einschlafzeit}:00${tz}` } };
-  if (aufwachzeit)   properties['Aufwachzeit']   = { date: { start: `${wakeDate}T${aufwachzeit}:00${tz}` } };
-  if (schlaf_quality != null) properties['Schlaf Quality'] = { number: Number(schlaf_quality) };
-  if (regularity)    properties['Regularity']   = { select: { name: regularity } };
+  // ERNAEHRUNG
+  else if (modul === 'ernaehrung') {
+    const { datum, kalorien, protein, carbs, fett, wasser } = body;
+    properties = {
+      Name: { title: [{ text: { content: datum } }] },
+      Datum: { date: { start: datum } },
+      'Kalorien (kcal)': { number: Number(kalorien) },
+      'Protein (g)': { number: Number(protein) },
+      'Carbs (g)': { number: Number(carbs) },
+      'Fett (g)': { number: Number(fett) },
+      'Wasser (L)': { number: Number(wasser) },
+      'Ernährungs-Settings': { relation: [{ id: '31ddded55d2181379359d2a2dc9a0e67' }] }
+    };
+  }
 
+  // PSYCHE
+  else if (modul === 'psyche') {
+    const { datum, bildschirmzeit, energie, stimmung, stresslevel, journaling } = body;
+    properties = {
+      Name: { title: [{ text: { content: datum } }] },
+      Datum: { date: { start: datum } },
+      'Bildschirmzeit (h)': { number: Number(bildschirmzeit) },
+      Energie: { number: Number(energie) },
+      Stimmung: { number: Number(stimmung) },
+      Stresslevel: { number: Number(stresslevel) },
+      Journaling: { checkbox: journaling === true || journaling === 'true' }
+    };
+  }
+
+  else {
+    return res.status(400).json({ error: `Unbekanntes Modul: ${modul}` });
+  }
+
+  // Heutiger Eintrag: bei Fitness/Ernaehrung/Psyche den Tages-Eintrag aus der
+  // Schlaf-DB (BackendRechner) suchen und als Relation verlinken
+  if (['fitness', 'ernaehrung', 'psyche'].includes(modul)) {
+    const datum = body.datum;
+    const schlafDbId = '30cdded55d2180538fe7c6dd0ab0428b';
+    try {
+      const queryRes = await fetch(`https://api.notion.com/v1/databases/${schlafDbId}/query`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${notionToken}`,
+          'Content-Type': 'application/json',
+          'Notion-Version': '2022-06-28'
+        },
+        body: JSON.stringify({
+          sorts: [{ timestamp: 'created_time', direction: 'descending' }],
+          page_size: 1
+        })
+      });
+      const queryData = await queryRes.json();
+      if (queryRes.ok && queryData.results && queryData.results.length > 0) {
+        properties['Heutiger Eintrag'] = {
+          relation: [{ id: queryData.results[0].id }]
+        };
+      }
+    } catch (e) {
+      console.warn('Heutiger Eintrag lookup fehlgeschlagen:', e.message);
+    }
+  }
+
+  // Notion Seite erstellen
   try {
-    const response = await fetch('https://api.notion.com/v1/pages', {
+    const notionRes = await fetch('https://api.notion.com/v1/pages', {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${notion_token}`, 'Content-Type': 'application/json', 'Notion-Version': '2022-06-28' },
-      body: JSON.stringify({ parent: { database_id }, properties })
+      headers: {
+        Authorization: `Bearer ${notionToken}`,
+        'Content-Type': 'application/json',
+        'Notion-Version': '2022-06-28'
+      },
+      body: JSON.stringify({
+        parent: { database_id: databaseId },
+        properties
+      })
     });
-    const data = await response.json();
-    if (!response.ok) return res.status(response.status).json({ error: data.message || 'Notion error' });
-    return res.status(200).json({ ok: true });
-  } catch (e) {
-    return res.status(500).json({ error: e.message });
+
+    const data = await notionRes.json();
+
+    if (!notionRes.ok) {
+      console.error('Notion Error:', data);
+      return res.status(notionRes.status).json({ error: data.message || 'Notion API Fehler', details: data });
+    }
+
+    return res.status(200).json({ success: true, id: data.id });
+  } catch (err) {
+    console.error('Server Error:', err);
+    return res.status(500).json({ error: 'Interner Server-Fehler', details: err.message });
   }
 }
